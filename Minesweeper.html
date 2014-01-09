@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title> Mindsweeper Game &bull; Tianyu</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Thumbtack submission">
+	<meta name="keywords" content="">
+	<link rel="stylesheet" type="text/css" href="assets/css/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="assets/css/main.css">
+</head>
+
+<body>
+	<div class="form-inline" id="gameForm" style="text-align: center; margin-top: 20px">
+		<input type="text" class="form-control" id="boardLength" placeholder="Enter board length">
+		<input type="text" class="form-control" id="boardHeight" placeholder="Enter board height">
+		<input type="text" class="form-control" id="numberMines" placeholder="Enter max number of mines">
+		<button id="initGame" class="btn btn-default">New Game</button>
+		<button id="validate" class="btn btn-default">Validate</button>
+		<button id="cheat" class="btn btn-default">Cheat</button>
+	</div>
+
+	<table id="board" border="1" align="center" oncontextmenu="return false;">
+	</table>
+
+	<div id="message">
+	</div>
+
+	<script type="text/javascript" src="assets/js/jquery-2.0.3.min.js"></script>
+	<script type="text/javascript" src="assets/js/main.js"></script>
+</body>
+
+</html>
