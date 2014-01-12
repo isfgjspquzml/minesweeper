@@ -114,13 +114,10 @@ $( document ).ready( function() {
 	* @param {number} numberMines The number of mines that should be placed onto the board
 	*/
 	function initBoard( boardLength, boardHeight, numberMines ) {
-		var i, j, row, col;
-		var addTableRow, addTableColumn;
-		var toRemove, minesToRemove;
-		var innerArray, size;
-		var flags, gameMap, mines;
+		var size;
 
 		$message.html('');
+		$board.empty();
 
 		// Set default values should if not already set
 		boardLength = boardLength || 8;
@@ -137,7 +134,27 @@ $( document ).ready( function() {
 		size = boardLength * boardHeight;
 
 		// Initialize flags array
-		flags = [];
+		globalVars.flags = [];
+
+		// Set the mine locations
+		globalVars.mines = createMines( size, globalVars.numberMines );
+
+		// Create the map in HTML and store it in a 2D array
+		globalVars.gameMap = createGameMap( globalVars.boardLength, globalVars.boardHeight);
+
+		// Set currently playing to true
+		globalVars.currentlyPlaying = true;
+	}
+
+	/**
+	* Creates mines to span the the game map
+	* 
+	* @param {number} size The length by width size of the map
+	* @param {number} numberMines The number of mines total
+	*/
+	function createMines( size, numberMines ) {
+		var i;
+		var mines, toRemove, minesToRemove;
 
 		// Randomly populate the map with mines
 		mines = [];
@@ -153,10 +170,22 @@ $( document ).ready( function() {
 			size--;
 		}
 
-		$board.empty();
+		return mines;
+	}
 
-		// Create the map in HTML and store it in a 2D array
+	/**
+	* Creates gameMap 2DArray and outputs HTML to the table section
+	* 
+	* @param {number} boardHeight Height of the board
+	* @param {number} boardLength Length of the board
+	*/
+	function createGameMap( boardHeight, boardLength ) {
+		var i, j, row, col;
+		var gameMap;
+		var addTableRow, addTableColumn, innerArray;
+
 		gameMap = [];
+
 		for ( i = 0; i < boardHeight; i++ ) {
 			addTableRow = '<tr>';
 			addTableColumn = '';
@@ -175,17 +204,13 @@ $( document ).ready( function() {
 			gameMap.push( innerArray );
 		}
 
-		for ( i = 0; i < mines.length; i++ ) {
-			row = Math.floor( mines[i] / globalVars.boardHeight );
-			col = mines[i] - row * globalVars.boardHeight;
+		for ( i = 0; i < globalVars.mines.length; i++ ) {
+			row = Math.floor( globalVars.mines[i] / globalVars.boardHeight );
+			col = globalVars.mines[i] - row * globalVars.boardHeight;
 			gameMap[row][col] = globalConstants.MINE_VAL;
 		}
 
-		// Set variables in global variable
-		globalVars.currentlyPlaying = true;
-		globalVars.flags = flags;
-		globalVars.gameMap = gameMap;
-		globalVars.mines = mines;
+		return gameMap;
 	}
 
 	/**
@@ -196,9 +221,9 @@ $( document ).ready( function() {
 	* @param {number} cellY The y coordinate of the cell
 	*/
 	function updateGameState( cellX, cellY ) {
-		var i, j;
-		var xCoord, yCoord;
-		var minesCount, position, neighbors, neighborSplit;
+		var i;
+		var position, neighbors, neighborSplit;
+		var minesCount;
 
 		// In case inputs are not integers
 		cellX = parseInt(cellX);
@@ -206,59 +231,27 @@ $( document ).ready( function() {
 
 		// If the game is over, disregard clicks
 		if ( globalVars.currentlyPlaying ) {
-
 			if ( globalVars.gameMap[cellX][cellY] == globalConstants.MINE_VAL) {
+				// Mine is revealed
 				cheat();
 				globalVars.currentlyPlaying = false;
 				$message.html( globalConstants.LOSE_MESSAGE );
 				return;
 			} else if ( globalVars.gameMap[cellX][cellY] == globalConstants.FOUND_VAL) {
+				// Clicked on already clicked tile
 				return;
 			} else if ( globalVars.flags[cellY * globalVars.boardLength + cellX] == globalConstants.MINE_VAL ) {
+				// Clicked on flagged tile
 				return;
 			} else {
 				neighbors = [];
-				minesCount = 0;
-				position = cellY * globalVars.boardLength + cellX;
-
-				// Get all neighbors
-				xCoord = [cellX - 1, cellX, cellX + 1];
-				yCoord = [cellY - 1, cellY, cellY + 1];
-				for ( i = 0; i < xCoord.length; i++ ) {
-					for ( j = 0; j < yCoord.length; j++) {
-						if ( i != 1 || j != 1 ) {
-							if ( xCoord[i] >= 0 && xCoord[i] < globalVars.boardLength &&
-								yCoord[j] >= 0 && yCoord[j] < globalVars.boardHeight ) {
-
-								// Keep track of unknown neighbors into neighbor array
-								if ( globalVars.gameMap[xCoord[i]][yCoord[j]] != globalConstants.FOUND_VAL &&
-									globalVars.gameMap[xCoord[i]][yCoord[j]] != globalConstants.PROXIMITY_VAL ) {
-									neighbors.push( xCoord[i] + '.' + yCoord[j] );
-								}
-
-								// See if neighbor is a bomb
-								if ( globalVars.gameMap[xCoord[i]][yCoord[j]] == globalConstants.MINE_VAL ) {
-									minesCount++;
-								}
-							}
-						}
-					}
-				}
+				minesCount = getMineCountAndUpdateNeighbors( neighbors, cellX, cellY );
 
 				if ( minesCount > 0) {
-					$board.find( '#tile_' + cellX + '_' + cellY ).html(minesCount);
-
-					// Mark the square as found near a bomb
-					if(globalVars.gameMap[cellX][cellY] != globalConstants.PROXIMITY_VAL ) {
-						globalVars.totalFound++;
-						globalVars.gameMap[cellX][cellY] = globalConstants.PROXIMITY_VAL;
-					}
+					// Mark the number of mines in proximity
+					markNumMines( minesCount, cellX, cellY );
 				} else {
-					$board.find( '#tile_' + cellX + '_' + cellY ).css( 'background', globalConstants.DEFAULT_GREEN );
-
-					// Mark the square as found not to have a bomb
-					globalVars.totalFound++;
-					globalVars.gameMap[cellX][cellY] = globalConstants.FOUND_VAL;
+					markFoundSpace( cellX, cellY );
 
 					// Loop through all surrounding squares
 					for ( i = 0; i < neighbors.length; i++ ) {
@@ -268,6 +261,78 @@ $( document ).ready( function() {
 				}
 			}
 		}
+	}
+
+	/**
+	* Takes the cell coordinates a user has clicked and finds the number of bombs around the cell.
+	* If the user passes in a array to get all the neighbors, this method updates that array.
+	* 
+	* @param {text array} array of positions stored as strings  
+	* @param {number} cellX The x coordinate of the cell
+	* @param {number} cellY The y coordinate of the cell
+	*/
+	function getMineCountAndUpdateNeighbors( neighbors, cellX, cellY ) {
+		var i, j;
+		var xCoord, yCoord;
+		var minesCount;
+
+		minesCount = 0;
+
+		// Get all neighbors
+		xCoord = [cellX - 1, cellX, cellX + 1];
+		yCoord = [cellY - 1, cellY, cellY + 1];
+		for ( i = 0; i < xCoord.length; i++ ) {
+			for ( j = 0; j < yCoord.length; j++) {
+				if ( i != 1 || j != 1 ) {
+					if ( xCoord[i] >= 0 && xCoord[i] < globalVars.boardLength &&
+						yCoord[j] >= 0 && yCoord[j] < globalVars.boardHeight ) {
+
+						// Keep track of unknown neighbors into neighbor array
+						if ( globalVars.gameMap[xCoord[i]][yCoord[j]] != globalConstants.FOUND_VAL &&
+							globalVars.gameMap[xCoord[i]][yCoord[j]] != globalConstants.PROXIMITY_VAL ) {
+							neighbors.push( xCoord[i] + '.' + yCoord[j] );
+						}
+
+						// See if neighbor is a bomb
+						if ( globalVars.gameMap[xCoord[i]][yCoord[j]] == globalConstants.MINE_VAL ) {
+							minesCount++;
+						}
+					}
+				}
+			}
+		}
+
+		return minesCount;
+	}
+
+	/**
+	* Marks the number of mines in proximity
+	* 
+	* @param {number} cellX The x coordinate of the cell
+	* @param {number} cellY The y coordinate of the cell
+	*/
+	function markNumMines( minesCount, cellX, cellY ) {
+		$board.find( '#tile_' + cellX + '_' + cellY ).html(minesCount);
+
+		// Mark the square as found near a bomb
+		if(globalVars.gameMap[cellX][cellY] != globalConstants.PROXIMITY_VAL ) {
+			globalVars.totalFound++;
+			globalVars.gameMap[cellX][cellY] = globalConstants.PROXIMITY_VAL;
+		}
+	}
+
+	/**
+	* Marks a space revealed to have no mines nearby
+	* 
+	* @param {number} cellX The x coordinate of the cell
+	* @param {number} cellY The y coordinate of the cell
+	*/
+	function markFoundSpace( cellX, cellY ) {
+		$board.find( '#tile_' + cellX + '_' + cellY ).css( 'background', globalConstants.DEFAULT_GREEN );
+
+		// Mark the square as found not to have a bomb
+		globalVars.totalFound++;
+		globalVars.gameMap[cellX][cellY] = globalConstants.FOUND_VAL;
 	}
 
 	/**
@@ -304,8 +369,6 @@ $( document ).ready( function() {
 		if ( globalVars.currentlyPlaying ) {
 
 			pass = true;
-			console.log(globalVars.totalFound);
-			console.log(globalVars.boardLength * globalVars.boardHeight - globalVars.mines.length);
 
 			if ( globalVars.totalFound != globalVars.boardLength * globalVars.boardHeight - globalVars.mines.length ) {
 				pass = false;
